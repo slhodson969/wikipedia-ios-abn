@@ -59,18 +59,28 @@ __attribute__((annotate("returns_localized_nsstring"))) static inline NSString *
     return activity;
 }
 
-+ (instancetype)wmf_placesActivityWithURL:(NSURL *)activityURL {
-    NSURLComponents *components = [NSURLComponents componentsWithURL:activityURL resolvingAgainstBaseURL:NO];
-    NSURL *articleURL = nil;
-    for (NSURLQueryItem *item in components.queryItems) {
-        if ([item.name isEqualToString:@"WMFArticleURL"]) {
-            NSString *articleURLString = item.value;
-            articleURL = [NSURL URLWithString:articleURLString];
-            break;
-        }
-    }
++ (instancetype)wmf_placesActivityWithURL:(NSURL *)url {
+    NSString *articleURLString = [url wmf_valueForQueryKey:@"WMFArticleURL"];
+    NSString *latitudeString = [url wmf_valueForQueryKey:@"WMFLatitude"];
+    NSString *longitudeString = [url wmf_valueForQueryKey:@"WMFLongitude"];
+    
     NSUserActivity *activity = [self wmf_pageActivityWithName:@"Places"];
-    activity.webpageURL = articleURL;
+    NSMutableDictionary *userInfo = [NSMutableDictionary dictionary];
+    userInfo[@"WMFPage"] = @"Places";
+
+    if (articleURLString) {
+        NSURL *articleURL = [NSURL URLWithString:articleURLString];
+        if (articleURL) {
+            // Note: We could also store the article URL in userInfo (e.g., userInfo[@"articleURL"]) instead of webpageURL
+            // if we want all activity data in one place. Currently, we keep webpageURL for legacy compatibility.
+            activity.webpageURL = articleURL;
+        }
+    } else if (latitudeString && longitudeString) {
+        userInfo[@"latitude"] = @([latitudeString doubleValue]);
+        userInfo[@"longitude"] = @([longitudeString doubleValue]);
+    }
+
+    activity.userInfo = [userInfo copy];
     return activity;
 }
 

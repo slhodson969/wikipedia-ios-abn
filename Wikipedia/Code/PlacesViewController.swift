@@ -2272,6 +2272,34 @@ class PlacesViewController: ArticleLocationCollectionViewController, UISearchBar
         view.heading = heading.trueHeading
     }
 
+    /// Safely zooms and pans the map view to a specific location, even on cold app launches.
+    ///
+    /// On a cold launch, the view controller's view and its mapView may not be loaded yet.
+    /// Calling `zoomAndPanMapView(toLocation:)` directly in that case would crash because mapView is nil.
+    /// This helper:
+    ///   1. Forces the view to load if needed (`_ = view`)
+    ///   2. Checks if mapView exists
+    ///   3. If not, defers execution to the next run loop until the mapView is ready
+    ///   4. Once ready, calls the normal zoom/pan function
+    ///
+    /// Using this ensures that coordinate-based deeplinks work safely whether the app is cold-started,
+    /// in the background, or already in memory.
+    @objc public func zoomAndPanMapViewSafely(_ location: CLLocation) {
+        // Force view to load if needed
+        _ = view
+
+        // If mapView isn’t ready yet, defer to next run loop
+        guard let mapView = self.mapView else {
+            DispatchQueue.main.async { [weak self] in
+                self?.zoomAndPanMapViewSafely(location)
+            }
+            return
+        }
+
+        // Safe to zoom
+        zoomAndPanMapView(toLocation: location)
+    }
+    
     func zoomAndPanMapView(toLocation location: CLLocation) {
         let region = [location.coordinate].wmf_boundingRegion(with: 10000)
         mapRegion = region
